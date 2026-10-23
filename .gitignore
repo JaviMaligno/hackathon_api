@@ -39,3 +39,7 @@ lerna-debug.log*
 __pycache__
 venv
 
+
+# Frozen Python environments and isolated generation/test scratch
+.venv/
+.pytest_cache/
