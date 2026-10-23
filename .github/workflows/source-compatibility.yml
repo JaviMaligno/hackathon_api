@@ -1,0 +1,47 @@
+name: Source compatibility
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: source-compatibility-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Identify changed source paths
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          if printf '%s\n' "$changed" | grep -Eq '^(src/|test/|prisma/|scripts/|package.*json$|tsconfig.*json$|\.github/workflows/)'; then echo "node=true" >> "$GITHUB_OUTPUT"; fi
+          if printf '%s\n' "$changed" | grep -Eq '^(tracking_energy_api/|\.github/workflows/)'; then echo "python=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+          cache: npm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.5'
+          python-version: '3.11.17'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate local Prisma types without environment files or database operations
+        run: node scripts/generate-client-offline.cjs
+      - run: npm run build
+      - run: uv sync --frozen
+        working-directory: tracking_energy_api
+      - name: Offline actual Nest controller contracts
+        if: github.event.pull_request.draft == false && steps.scope.outputs.node == 'true'
+        run: node node_modules/jest/bin/jest.js --runTestsByPath src/dependency-runtime.spec.ts --maxWorkers=2
+      - name: Offline actual Flask route contracts
+        if: github.event.pull_request.draft == false && steps.scope.outputs.python == 'true'
+        working-directory: tracking_energy_api
+        run: uv run --frozen pytest -q tests/test_runtime_contract.py

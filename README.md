@@ -29,7 +29,8 @@
 ## Installation
 
 ```bash
-$ npm install
+$ npm ci --ignore-scripts --no-audit --no-fund
+$ node scripts/generate-client-offline.cjs
 ```
 
 ## Running the app
@@ -71,3 +72,7 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](LICENSE).
+
+## Security dependency maintenance
+
+Node 24.22.1; Nest 11 and Prisma 4.16.2 retain the existing API and schema. The Python service uses Python 3.11.17/uv 0.13.5 and a frozen lock. See [SECURITY-DEPENDENCIES.md](SECURITY-DEPENDENCIES.md) for safe client generation, offline contracts, supported dependency cohorts and remaining verification limits. Do not use the bootstrap or seed commands as security smoke tests.
